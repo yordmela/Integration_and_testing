@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsNumber, IsEnum, IsEmpty } from "class-validator";
+import { IsNotEmpty, IsString, IsNumber, IsEnum, IsEmpty, IsOptional } from "class-validator";
 import { Category, User } from "../schemas/room.schema";
 
 export class CreateRoomDto {
@@ -21,7 +21,7 @@ export class CreateRoomDto {
     @IsEmpty({ message: 'You cannot pass user ID.' })
     readonly user: User;
 
-    @IsNotEmpty()
+    @IsOptional()
     @IsString()
     readonly image: string;  // Validate image as a non-empty string
 }

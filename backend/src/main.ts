@@ -18,7 +18,9 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe());
 
   // Serve static files from the uploads directory
-  app.useStaticAssets(join(__dirname, '..', 'uploads'));
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads/',
+  });
 
   await app.listen(3000);
 }

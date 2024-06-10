@@ -4,17 +4,22 @@ import 'package:flutter_proj_2024/domain/room/room.dart';
 
 class RoomRepository {
   final String apiUrl = 'http://localhost:3000/room';
+Future<List<Map<String, dynamic>>> loadRooms() async {
+  final response = await http.get(Uri.parse(apiUrl));
 
-  Future<List<Map<String, dynamic>>> loadRooms() async {
-    final response = await http.get(Uri.parse(apiUrl));
+  // Print the response details
+  print('Response status code: ${response.statusCode}');
+  print('Response body: ${response.body}');
+  print('Response headers: ${response.headers}');
 
-    if (response.statusCode == 200) {
-      List<dynamic> data = json.decode(response.body);
-      return data.cast<Map<String, dynamic>>();
-    } else {
-      throw Exception('Failed to load rooms');
-    }
+  if (response.statusCode == 200) {
+    List<dynamic> data = json.decode(response.body);
+    return data.cast<Map<String, dynamic>>();
+  } else {
+    throw Exception('Failed to load rooms');
   }
+}
+
 
   Future<void> addRoom(Room room) async {
     final response = await http.post(

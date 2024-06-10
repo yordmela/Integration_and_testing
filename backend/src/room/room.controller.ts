@@ -17,7 +17,15 @@ export class RoomController {
 
   @Get()
   async getAllRooms(): Promise<Room[]> {
-    return this.roomService.findAll();
+    const rooms = await this.roomService.findAll();
+    // Add base URL to image paths
+    rooms.forEach(room => {
+      if (room.image) {
+        room.image = `http://localhost:3000/uploads/${room.image}`;
+      }
+    });
+    console.log('Room', rooms)
+    return rooms;
   }
 
   @Post()
@@ -33,12 +41,19 @@ export class RoomController {
     }),
   }))
   async createRoom(
-    @Body() room: CreateRoomDto,
     @UploadedFile() file: Express.Multer.File,
+    @Body() body: any,
     @Req() req
   ): Promise<Room> {
-    const imageUrl = file ? file.filename : null;
-    return this.roomService.create({ ...room, image: imageUrl }, req.user);
+    const createRoomDto: CreateRoomDto = {
+      title: body.title,
+      description: body.description,
+      price: parseFloat(body.price), // Ensure the price is parsed as a number
+      category: body.category,
+      user: req.user,
+      image: file ? file.filename : null,
+    };
+    return this.roomService.create(createRoomDto, req.user);
   }
 
   @Get(':id')
@@ -61,14 +76,22 @@ export class RoomController {
     }),
   }))
   async updateRoom(
-    @Param('id') id: string,
-    @Body() room: UpdateRoomDto,
     @UploadedFile() file: Express.Multer.File,
+    @Param('id') id: string,
+    @Body() body: any,
     @Req() req
   ): Promise<Room> {
-    const imageUrl = file ? file.filename : null;
-    return this.roomService.updateById(id, { ...room, image: imageUrl }, req.user);
+    const updateRoomDto: UpdateRoomDto = {
+      title: body.title,
+      description: body.description,
+      price: parseFloat(body.price), // Ensure the price is parsed as a number
+      category: body.category,
+      user: req.user,
+      image: file ? file.filename : null,
+    };
+    return this.roomService.updateById(id, updateRoomDto, req.user);
   }
+
 
   @Delete(':id')
   @Roles(Role.Admin)

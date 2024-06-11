@@ -4,9 +4,10 @@ import 'package:flutter_proj_2024/application/admin/bloc/admin_bloc.dart';
 import 'package:flutter_proj_2024/application/admin/bloc/admin_event.dart';
 import 'package:flutter_proj_2024/application/admin/bloc/admin_state.dart';
 import 'package:flutter_proj_2024/domain/room/room.dart';
-import 'package:flutter_proj_2024/domain/room/room_repository.dart';
-import 'package:flutter_proj_2024/infrastructure/admin/repositories/admin_repository_impl.dart';
 import 'package:flutter_proj_2024/shared/widgets/drawer.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:convert';
+import 'dart:io';
 
 class AdminPage extends StatefulWidget {
   const AdminPage({Key? key}) : super(key: key);
@@ -17,6 +18,7 @@ class AdminPage extends StatefulWidget {
 
 class _AdminPageState extends State<AdminPage> {
   int _currentImageIndex = 0;
+  File? _selectedImage;
 
   @override
   Widget build(BuildContext context) {
@@ -26,54 +28,63 @@ class _AdminPageState extends State<AdminPage> {
         title: Text('Admin Page'),
       ),
       drawer: AppDrawer(),
-      body: BlocProvider(
-        create: (context) => AdminBloc(AdminRepositoryImpl(RoomRepository()))..add(LoadItemsEvent()),
-        child: BlocBuilder<AdminBloc, AdminState>(
-          builder: (context, state) {
-            if (state is AdminLoading) {
-              return Center(child: CircularProgressIndicator());
-            } else if (state is AdminLoaded) {
-              return SingleChildScrollView(
-                child: Column(
-                  children: state.rooms.map((room) {
-                    return Column(
-                      children: [
-                        const SizedBox(height: 20),
-                        Text(
-                          room.title,
-                          style: const TextStyle(
-                            color: Color.fromARGB(255, 95, 65, 65),
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
+      body: BlocConsumer<AdminBloc, AdminState>(
+        listener: (context, state) {
+          if (state is AdminError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: ${state.message}')),
+            );
+          }
+          if (state is ItemDeleted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Item deleted successfully')),
+            );
+          }
+        },
+        builder: (context, state) {
+          if (state is AdminLoading) {
+            return Center(child: CircularProgressIndicator());
+          } else if (state is AdminLoaded) {
+            return SingleChildScrollView(
+              child: Column(
+                children: state.rooms.map((room) {
+                  return Column(
+                    children: [
+                      const SizedBox(height: 20),
+                      Text(
+                        room.title,
+                        style: const TextStyle(
+                          color: Color.fromARGB(255, 95, 65, 65),
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(height: 20),
-                        SizedBox(
-                          height: 465,
-                          child: PageView.builder(
-                            itemCount: 1, // Only one image per room for now
-                            onPageChanged: (index) {
-                              setState(() {
-                                _currentImageIndex = index;
-                              });
-                            },
-                            itemBuilder: (context, index) {
-                              return _buildCard(room);
-                            },
-                          ),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        height: 465,
+                        child: PageView.builder(
+                          itemCount: 1, // Only one image per room for now
+                          onPageChanged: (index) {
+                            setState(() {
+                              _currentImageIndex = index;
+                            });
+                          },
+                          itemBuilder: (context, index) {
+                            return _buildCard(room);
+                          },
                         ),
-                      ],
-                    );
-                  }).toList(),
-                ),
-              );
-            } else if (state is AdminError) {
-              return Center(child: Text('Failed to load rooms: ${state.message}'));
-            } else {
-              return Center(child: Text('No rooms found.'));
-            }
-          },
-        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            );
+          } else if (state is AdminError) {
+            return Center(child: Text('Failed to load rooms: ${state.message}'));
+          } else {
+            return Center(child: Text('No rooms found.'));
+          }
+        },
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color.fromARGB(255, 252, 241, 230),
@@ -104,6 +115,9 @@ class _AdminPageState extends State<AdminPage> {
               height: 200,
               width: double.infinity,
               fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return const Icon(Icons.error);
+              },
             ),
             const Divider(color: Color.fromARGB(255, 208, 188, 188)),
             Text(
@@ -161,12 +175,20 @@ class _AdminPageState extends State<AdminPage> {
     );
   }
 
+  Future<void> _pickImage() async {
+    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImage = File(pickedFile.path);
+      });
+    }
+  }
+
   void _showAddNewDialog(BuildContext context) {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
     final priceController = TextEditingController();
     final categoryController = TextEditingController();
-    final imageController = TextEditingController();
 
     showDialog(
       context: context,
@@ -194,10 +216,16 @@ class _AdminPageState extends State<AdminPage> {
                 controller: categoryController,
                 decoration: InputDecoration(labelText: 'Category'),
               ),
-              TextField(
-                controller: imageController,
-                decoration: InputDecoration(labelText: 'Image URL'),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: _pickImage,
+                child: const Text('Pick Image'),
               ),
+              if (_selectedImage != null)
+                Image.file(
+                  _selectedImage!,
+                  height: 200,
+                ),
             ],
           ),
           actions: [
@@ -209,16 +237,18 @@ class _AdminPageState extends State<AdminPage> {
             ),
             ElevatedButton(
               onPressed: () {
-                final room = Room(
-                  id: '', // The backend will generate the ID
-                  title: titleController.text,
-                  description: descriptionController.text,
-                  price: double.parse(priceController.text),
-                  category: categoryController.text,
-                  image: imageController.text,
-                );
-                context.read<AdminBloc>().add(AddItemEvent(room));
-                Navigator.of(context).pop();
+                if (_selectedImage != null) {
+                  final room = Room(
+                    id: '', // The backend will generate the ID
+                    title: titleController.text,
+                    description: descriptionController.text,
+                    price: double.parse(priceController.text),
+                    category: categoryController.text,
+                    image: base64Encode(_selectedImage!.readAsBytesSync()),
+                  );
+                  context.read<AdminBloc>().add(AddItemEvent(room));
+                  Navigator.of(context).pop();
+                }
               },
               child: Text('Save'),
             ),
@@ -233,7 +263,6 @@ class _AdminPageState extends State<AdminPage> {
     final descriptionController = TextEditingController(text: room.description);
     final priceController = TextEditingController(text: room.price.toString());
     final categoryController = TextEditingController(text: room.category);
-    final imageController = TextEditingController(text: room.image);
 
     showDialog(
       context: context,
@@ -261,10 +290,16 @@ class _AdminPageState extends State<AdminPage> {
                 controller: categoryController,
                 decoration: InputDecoration(labelText: 'Category'),
               ),
-              TextField(
-                controller: imageController,
-                decoration: InputDecoration(labelText: 'Image URL'),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: _pickImage,
+                child: const Text('Pick Image'),
               ),
+              if (_selectedImage != null)
+                Image.file(
+                  _selectedImage!,
+                  height: 200,
+                ),
             ],
           ),
           actions: [
@@ -282,7 +317,9 @@ class _AdminPageState extends State<AdminPage> {
                   description: descriptionController.text,
                   price: double.parse(priceController.text),
                   category: categoryController.text,
-                  image: imageController.text,
+                  image: _selectedImage != null
+                      ? base64Encode(_selectedImage!.readAsBytesSync())
+                      : room.image,
                 );
                 context.read<AdminBloc>().add(UpdateItemEvent(updatedRoom));
                 Navigator.of(context).pop();

@@ -1,7 +1,7 @@
 // lib/infrastructure/admin/repositories/admin_repository_impl.dart
 import 'package:flutter_proj_2024/domain/admin/repositories/admin_repository.dart';
-import 'package:flutter_proj_2024/domain/room/room_repository.dart';
 import 'package:flutter_proj_2024/domain/room/room.dart';
+import 'package:flutter_proj_2024/domain/room/room_repository.dart';
 
 class AdminRepositoryImpl implements AdminRepository {
   final RoomRepository roomRepository;
@@ -10,9 +10,7 @@ class AdminRepositoryImpl implements AdminRepository {
 
   @override
   Future<List<Room>> loadItems() async {
-    List<Map<String, dynamic>> roomMaps = await roomRepository.loadRooms();
-    List<Room> rooms = roomMaps.map((roomMap) => Room.fromJson(roomMap)).toList();
-    return rooms;
+    return await roomRepository.loadRooms();
   }
 
   @override
@@ -26,7 +24,7 @@ class AdminRepositoryImpl implements AdminRepository {
   }
 
   @override
-  Future<void> deleteItem(String roomId) async {
-    await roomRepository.deleteRoom(roomId);
+  Future<void> deleteItem(String id) async {
+    await roomRepository.deleteRoom(id);
   }
 }

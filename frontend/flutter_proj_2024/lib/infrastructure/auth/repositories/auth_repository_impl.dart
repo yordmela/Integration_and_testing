@@ -1,5 +1,6 @@
 import 'package:flutter_proj_2024/domain/auth/repositories/auth_repository.dart';
 import 'package:flutter_proj_2024/infrastructure/auth/data_sources/auth_api.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final AuthApi authApi;
@@ -8,7 +9,15 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<Map<String, dynamic>?> login(String email, String password) async {
-    return await authApi.login(email, password);
+    final response = await authApi.login(email, password);
+    if (response != null) {
+      final token = response['token'];
+      if (token != null) {
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', token);
+      }
+    }
+    return response;
   }
 
   @override

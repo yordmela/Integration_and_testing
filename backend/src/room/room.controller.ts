@@ -29,32 +29,38 @@ export class RoomController {
   }
 
   @Post()
-  @UseGuards(AuthGuard(), RolesGuard)
-  @Roles(Role.Admin)
-  @UseInterceptors(FileInterceptor('image', {
-    storage: diskStorage({
-      destination: './uploads',
-      filename: (req, file, cb) => {
-        const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-        cb(null, `${randomName}${extname(file.originalname)}`);
-      },
-    }),
-  }))
-  async createRoom(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: any,
-    @Req() req
-  ): Promise<Room> {
-    const createRoomDto: CreateRoomDto = {
-      title: body.title,
-      description: body.description,
-      price: parseFloat(body.price), // Ensure the price is parsed as a number
-      category: body.category,
-      user: req.user,
-      image: file ? file.filename : null,
-    };
-    return this.roomService.create(createRoomDto, req.user);
-  }
+@UseGuards(AuthGuard(), RolesGuard)
+@Roles(Role.Admin)
+@UseInterceptors(FileInterceptor('image', {
+  storage: diskStorage({
+    destination: './uploads',
+    filename: (req, file, cb) => {
+      const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
+      cb(null, `${randomName}${extname(file.originalname)}`);
+    },
+  }),
+}))
+async createRoom(
+  @UploadedFile() file: Express.Multer.File,
+  @Body() body: any,
+  @Req() req
+): Promise<Room> {
+  console.log('Body:', body);
+  console.log('File:', file);
+  console.log('User:', req.user);
+  
+  const createRoomDto: CreateRoomDto = {
+    title: body.title,
+    description: body.description,
+    price: parseFloat(body.price), // Ensure the price is parsed as a number
+    category: body.category,
+    user: req.user,
+    image: file ? file.filename : null,
+  };
+  
+  return this.roomService.create(createRoomDto, req.user);
+}
+
 
   @Get(':id')
   async getRoom(

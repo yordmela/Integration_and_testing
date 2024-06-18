@@ -1,3 +1,4 @@
+// admin bloc
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'admin_event.dart';
 import 'admin_state.dart';
@@ -24,6 +25,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
       print('Adding item: ${event.room}');
       try {
         await adminRepository.addItem(event.room);
+        emit(ItemAdded());
         add(LoadItemsEvent()); // Refresh the items list
       } catch (e) {
         emit(AdminError(e.toString()));
@@ -35,6 +37,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
       print('Updating item: ${event.room}');
       try {
         await adminRepository.updateItem(event.room);
+        emit(ItemUpdated());
         add(LoadItemsEvent()); // Refresh the items list
       } catch (e) {
         emit(AdminError(e.toString()));
@@ -46,6 +49,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
       print('Deleting item: ${event.roomId}');
       try {
         await adminRepository.deleteItem(event.roomId);
+        emit(ItemDeleted());
         add(LoadItemsEvent()); // Refresh the items list
       } catch (e) {
         emit(AdminError(e.toString()));

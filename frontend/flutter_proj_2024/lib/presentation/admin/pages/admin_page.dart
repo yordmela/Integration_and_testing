@@ -8,6 +8,7 @@ import 'package:flutter_proj_2024/shared/widgets/drawer.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AdminPage extends StatefulWidget {
   const AdminPage({Key? key}) : super(key: key);
@@ -38,6 +39,16 @@ class _AdminPageState extends State<AdminPage> {
           if (state is ItemDeleted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Item deleted successfully')),
+            );
+          }
+          if (state is ItemAdded) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Item added successfully')),
+            );
+          }
+          if (state is ItemUpdated) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Item updated successfully')),
             );
           }
         },
@@ -110,15 +121,25 @@ class _AdminPageState extends State<AdminPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            Image.network(
-              room.image,
-              height: 200,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return const Icon(Icons.error);
-              },
-            ),
+            kIsWeb
+                ? Image.network(
+                    room.image,
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Icon(Icons.error);
+                    },
+                  )
+                : Image.file(
+                    File(room.image),
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Icon(Icons.error);
+                    },
+                  ),
             const Divider(color: Color.fromARGB(255, 208, 188, 188)),
             Text(
               room.description,
@@ -175,158 +196,202 @@ class _AdminPageState extends State<AdminPage> {
     );
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImage(Function(XFile) onImagePicked) async {
     final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
-      setState(() {
-        _selectedImage = File(pickedFile.path);
-      });
+      onImagePicked(pickedFile);
     }
   }
 
   void _showAddNewDialog(BuildContext context) {
-    final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
-    final priceController = TextEditingController();
-    final categoryController = TextEditingController();
+  final titleController = TextEditingController();
+  final descriptionController = TextEditingController();
+  final priceController = TextEditingController();
+  final categoryController = TextEditingController();
+  XFile? dialogSelectedImage;
 
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: const Color.fromARGB(255, 252, 241, 230),
-          title: const Text('Add New Room'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleController,
-                decoration: InputDecoration(labelText: 'Title'),
-              ),
-              TextField(
-                controller: descriptionController,
-                decoration: InputDecoration(labelText: 'Description'),
-              ),
-              TextField(
-                controller: priceController,
-                decoration: InputDecoration(labelText: 'Price'),
-                keyboardType: TextInputType.number,
-              ),
-              TextField(
-                controller: categoryController,
-                decoration: InputDecoration(labelText: 'Category'),
-              ),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: _pickImage,
-                child: const Text('Pick Image'),
-              ),
-              if (_selectedImage != null)
-                Image.file(
-                  _selectedImage!,
-                  height: 200,
+  showDialog(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            backgroundColor: const Color.fromARGB(255, 252, 241, 230),
+            title: const Text('Add New Room'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: InputDecoration(labelText: 'Title'),
                 ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text('Cancel'),
+                TextField(
+                  controller: descriptionController,
+                  decoration: InputDecoration(labelText: 'Description'),
+                ),
+                TextField(
+                  controller: priceController,
+                  decoration: InputDecoration(labelText: 'Price'),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: categoryController,
+                  decoration: InputDecoration(labelText: 'Category'),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: () async {
+                    await _pickImage((file) {
+                      setState(() {
+                        dialogSelectedImage = file;
+                      });
+                    });
+                  },
+                  child: const Text('Pick Image'),
+                ),
+                if (dialogSelectedImage != null)
+                  kIsWeb
+                      ? Image.network(
+                          dialogSelectedImage!.path,
+                          height: 200,
+                        )
+                      : Image.file(
+                          File(dialogSelectedImage!.path),
+                          height: 200,
+                        ),
+              ],
             ),
-            ElevatedButton(
-              onPressed: () {
-                if (_selectedImage != null) {
-                  final room = Room(
-                    id: '', // The backend will generate the ID
-                    title: titleController.text,
-                    description: descriptionController.text,
-                    price: double.parse(priceController.text),
-                    category: categoryController.text,
-                    image: base64Encode(_selectedImage!.readAsBytesSync()),
-                  );
-                  context.read<AdminBloc>().add(AddItemEvent(room));
+            actions: [
+              TextButton(
+                onPressed: () {
                   Navigator.of(context).pop();
-                }
-              },
-              child: Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+                },
+                child: Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (dialogSelectedImage != null) {
+                    try {
+                      final imageBytes = await dialogSelectedImage!.readAsBytes();
+                      final base64Image = base64Encode(imageBytes);
+                      print('Base64 Image: $base64Image'); // Debug statement
+
+                      final room = Room(
+                        id: '', // The backend will generate the ID
+                        title: titleController.text,
+                        description: descriptionController.text,
+                        price: double.parse(priceController.text),
+                        category: categoryController.text,
+                        image: base64Image,
+                      );
+                      print('Room to be added: $room'); // Debug statement
+                      context.read<AdminBloc>().add(AddItemEvent(room));
+                      Navigator.of(context).pop();
+                    } catch (e) {
+                      print('Error encoding image: $e'); // Debug statement
+                    }
+                  }
+                },
+                child: Text('Save'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
+
 
   void _showEditDialog(BuildContext context, Room room) {
     final titleController = TextEditingController(text: room.title);
     final descriptionController = TextEditingController(text: room.description);
     final priceController = TextEditingController(text: room.price.toString());
     final categoryController = TextEditingController(text: room.category);
+    XFile? dialogSelectedImage;
 
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: const Color.fromARGB(255, 252, 241, 230),
-          title: const Text('Edit Room'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleController,
-                decoration: InputDecoration(labelText: 'Title'),
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: const Color.fromARGB(255, 252, 241, 230),
+              title: const Text('Edit Room'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: titleController,
+                    decoration: InputDecoration(labelText: 'Title'),
+                  ),
+                  TextField(
+                    controller: descriptionController,
+                    decoration: InputDecoration(labelText: 'Description'),
+                  ),
+                  TextField(
+                    controller: priceController,
+                    decoration: InputDecoration(labelText: 'Price'),
+                    keyboardType: TextInputType.number,
+                  ),
+                  TextField(
+                    controller: categoryController,
+                    decoration: InputDecoration(labelText: 'Category'),
+                  ),
+                  const SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await _pickImage((file) {
+                        setState(() {
+                          dialogSelectedImage = file;
+                        });
+                      });
+                    },
+                    child: const Text('Pick Image'),
+                  ),
+                  if (dialogSelectedImage != null)
+                    kIsWeb
+                        ? Image.network(
+                            dialogSelectedImage!.path,
+                            height: 200,
+                          )
+                        : Image.file(
+                            File(dialogSelectedImage!.path),
+                            height: 200,
+                          ),
+                ],
               ),
-              TextField(
-                controller: descriptionController,
-                decoration: InputDecoration(labelText: 'Description'),
-              ),
-              TextField(
-                controller: priceController,
-                decoration: InputDecoration(labelText: 'Price'),
-                keyboardType: TextInputType.number,
-              ),
-              TextField(
-                controller: categoryController,
-                decoration: InputDecoration(labelText: 'Category'),
-              ),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: _pickImage,
-                child: const Text('Pick Image'),
-              ),
-              if (_selectedImage != null)
-                Image.file(
-                  _selectedImage!,
-                  height: 200,
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: Text('Cancel'),
                 ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final updatedRoom = Room(
-                  id: room.id,
-                  title: titleController.text,
-                  description: descriptionController.text,
-                  price: double.parse(priceController.text),
-                  category: categoryController.text,
-                  image: _selectedImage != null
-                      ? base64Encode(_selectedImage!.readAsBytesSync())
-                      : room.image,
-                );
-                context.read<AdminBloc>().add(UpdateItemEvent(updatedRoom));
-                Navigator.of(context).pop();
-              },
-              child: Text('Save'),
-            ),
-          ],
+                ElevatedButton(
+                  onPressed: () async {
+                    try {
+                      final updatedRoom = Room(
+                        id: room.id,
+                        title: titleController.text,
+                        description: descriptionController.text,
+                        price: double.parse(priceController.text),
+                        category: categoryController.text,
+                        image: dialogSelectedImage != null
+                            ? base64Encode(await dialogSelectedImage!.readAsBytes())
+                            : room.image,
+                      );
+                      context.read<AdminBloc>().add(UpdateItemEvent(updatedRoom));
+                      Navigator.of(context).pop();
+                    } catch (e) {
+                      print('Error updating room: $e');
+                    }
+                  },
+                  child: Text('Save'),
+                ),
+              ],
+            );
+          },
         );
       },
     );

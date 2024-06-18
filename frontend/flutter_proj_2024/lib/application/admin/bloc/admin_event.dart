@@ -1,3 +1,4 @@
+// admin event
 import 'package:flutter_proj_2024/domain/room/room.dart';
 
 abstract class AdminEvent {}
